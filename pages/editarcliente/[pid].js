@@ -1,117 +1,111 @@
-import React, { useState } from 'react';
-import Layout from '../components/Layout';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import { gql, useMutation } from '@apollo/client';
+import React from 'react';
 import { useRouter } from 'next/router';
+import Layout from '../../components/Layout';
+import { gql, useQuery, useMutation } from '@apollo/client';
+import { Formik } from 'formik';
+import * as Yup from 'yup';
+import Swal from 'sweetalert2';
 
-const NUEVO_CLIENTE = gql`
-    mutation nuevoCliente($input: ClienteInput) {
-        nuevoCliente(input: $input) {
-            id
-            nombre
-            apellido
-            empresa
-            email
-            telefono
-        }
+const OBTENER_CLIENTE = gql`
+query obtenerCliente($id:ID!) {
+    obtenerCliente(id:$id) {
+      id
+      nombre
+      apellido
+      email
+      telefono
+      empresa
     }
-`;
-
-const OBTENER_CLIENTES_USUARIO = gql`
-query obtenerClientesVendedor {
-  obtenerClientesVendedor {
-    id
-    nombre
-    apellido
-    empresa
-    email
   }
-}
 `;
 
-const NuevoCliente = () => {
+const ACTUALIZAR_CLIENTE = gql`
+mutation actualizarCliente($id: ID!, $input: ClienteInput) {
+    actualizarCliente(id: $id, input: $input) {
+      nombre
+      email
+    }
+  }
+`;
 
+const EditarCliente = () => {
     const router = useRouter();
-
-    //State para el mensaje
-    const [mensaje, guardarMensaje] = useState(null);
-
-    //Mutation para crear el nuevo cliente
-    const [ nuevoCliente ] = useMutation(NUEVO_CLIENTE, {
-        update(cache, { data: { nuevoCliente } }) {
-            //Obtener el objeto de cache que quiero actualizar
-            const { obtenerClientesVendedor } = cache.readQuery({ query: OBTENER_CLIENTES_USUARIO });
-
-            //Reescribimos el cache { el cache no se debe modificar }            
-            cache.writeQuery({
-                query: OBTENER_CLIENTES_USUARIO,
-                data: {
-                    obtenerClientesVendedor: [...obtenerClientesVendedor, nuevoCliente]
-                }
-            })
+    const { query: { id } } = router;
+    
+    const { data, loading, error } = useQuery(OBTENER_CLIENTE, {
+        variables: {
+            id
         }
     });
 
-    const formik = useFormik({
-        initialValues: {
-            nombre: '',
-            apellido: '',
-            empresa: '',
-            email: '',
-            telefono: ''
-        },
-        validationSchema: Yup.object({
-            nombre: Yup.string().required('El nombre es obligatorio!'),
-            apellido: Yup.string().required('El apellido es obligatorio!'),
-            empresa: Yup.string().required('El nombre de la Empresa es obligatorio!'),
-            email: Yup.string().email('Email no valido!').required('El Email es obligatorio!')
-        }),
-        onSubmit: async valores => {
-            const {nombre, apellido, empresa, email, telefono} = valores;
-            try {
-                const {data} = await nuevoCliente({
-                    variables: {
-                        input: {
-                            nombre,
-                            apellido,
-                            empresa,
-                            email,
-                            telefono
-                        }
+    const [ actualizarCliente ] = useMutation( ACTUALIZAR_CLIENTE );
+
+    const schemaValidacion = Yup.object({
+        nombre: Yup.string().required('El nombre es obligatorio!'),
+        apellido: Yup.string().required('El apellido es obligatorio!'),
+        empresa: Yup.string().required('El nombre de la Empresa es obligatorio!'),
+        email: Yup.string().email('Email no valido!').required('El Email es obligatorio!')
+    });
+
+    if(loading) return 'Cargando...';
+
+    const { obtenerCliente } = data;
+
+    const actualizarInfoCliente = async valores => {
+        const { nombre, apellido, email, telefono, empresa } = valores;
+
+        try {
+            const { data } = await actualizarCliente({
+                variables: {
+                    id,
+                    input: {
+                        nombre,
+                        apellido, 
+                        email, 
+                        telefono, 
+                        empresa
                     }
-                });
-                router.push('/');
-            } catch (error) {
-                guardarMensaje(error.message)
+                }
+            });
 
-                setTimeout(() => {
-                    guardarMensaje(null);
-                }, 3000);
-            }
+            Swal.fire(
+                'Actualizado!',
+                'El cliente se actualizó exitosamente.',
+                'success'
+              )
+
+            router.push('/');
+
+        } catch (error) {
+            console.log(error);
         }
-    })
-
-    const mostrarMensaje = () => {
-        return(
-            <div className="bg-red-300 rounded-lg py-2 px-3 w-full my-3 max-w-sm text-center mx-auto">
-                <p>{mensaje}</p>
-            </div>
-        )
     }
 
     return ( 
         <Layout>
-            <h1 className="text-2xl text-gray-800 font-light">Nuevo Cliente</h1>
-            { mensaje && mostrarMensaje() }
+            <h1 className="text-2xl text-gray-800 font-light">Editar Cliente</h1>
+
             <div className="flex justify-center mt-5">
                 <div className="w-full max-w-lg">
+                    <Formik
+                        validationSchema={ schemaValidacion }
+                        enableReinitialize
+                        initialValues={ obtenerCliente } 
+                        onSubmit={ ( valores ) => {
+                            actualizarInfoCliente(valores);
+                        }}
+                    >
+                        {props => {
+
+                            return (
+
+                    
                     <form
                         className="bg-white rounded shadow-md px-8 pt-6 pb-8 mb-4"
-                        onSubmit={formik.handleSubmit}
+                        onSubmit={props.handleSubmit}
                     >
                         <div className="mb-4">
-                        { formik.touched.nombre && formik.errors.nombre ? ( 
+                        { props.touched.nombre && props.errors.nombre ? ( 
                             <div className="md:flex">
                             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="nombre">
                                 Nombre
@@ -131,19 +125,19 @@ const NuevoCliente = () => {
                                 id="nombre"
                                 type="text"
                                 placeholder="Nombre Cliente"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.nombre}
+                               onChange={props.handleChange}
+                               onBlur={props.handleBlur}
+                               value={props.values.nombre}
                             />
                         </div>
-                        { formik.touched.nombre && formik.errors.nombre ? (
+                        { props.touched.nombre && props.errors.nombre ? (
                                 <div className="my-2 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                                     <p className="font-bold">Error!</p>
-                                    <p>{formik.errors.nombre}</p>
+                                    <p>{props.errors.nombre}</p>
                                 </div>
                             ) : null }
                         <div className="mb-4">
-                        { formik.touched.apellido && formik.errors.apellido ? ( 
+                        { props.touched.apellido && props.errors.apellido ? ( 
                             <div className="md:flex">
                             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="apellido">
                                 Apellido
@@ -163,19 +157,19 @@ const NuevoCliente = () => {
                                 id="apellido"
                                 type="text"
                                 placeholder="Apellido Cliente"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.apellido}
+                                onChange={props.handleChange}
+                                onBlur={props.handleBlur}
+                                value={props.values.apellido}
                             />
                         </div>
-                        { formik.touched.apellido && formik.errors.apellido ? (
+                        { props.touched.apellido && props.errors.apellido ? (
                                 <div className="my-2 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                                     <p className="font-bold">Error!</p>
-                                    <p>{formik.errors.apellido}</p>
+                                    <p>{props.errors.apellido}</p>
                                 </div>
                             ) : null }
                         <div className="mb-4">
-                        { formik.touched.empresa && formik.errors.empresa ? ( 
+                        { props.touched.empresa && props.errors.empresa ? ( 
                             <div className="md:flex">
                             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="empresa">
                                 Empresa
@@ -195,19 +189,19 @@ const NuevoCliente = () => {
                                 id="empresa"
                                 type="text"
                                 placeholder="Empresa Cliente"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.empresa}
+                               onChange={props.handleChange}
+                                onBlur={props.handleBlur}
+                                value={props.values.empresa}
                             />
                         </div>
-                        { formik.touched.empresa && formik.errors.empresa ? (
+                        { props.touched.empresa && props.errors.empresa ? (
                                 <div className="my-2 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                                     <p className="font-bold">Error!</p>
-                                    <p>{formik.errors.empresa}</p>
+                                    <p>{props.errors.empresa}</p>
                                 </div>
                             ) : null }
                         <div className="mb-4">
-                        { formik.touched.email && formik.errors.email ? ( 
+                        { props.touched.email && props.errors.email ? ( 
                             <div className="md:flex">
                             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
                                 Email
@@ -220,22 +214,22 @@ const NuevoCliente = () => {
                                     Email
                                 </label>
                                 <p className="font-bold">*</p>
-                            </div> }
+                        </div> }
 
                             <input
                                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-light focus:outline-none focus:shadow-outline"
                                 id="email"
                                 type="email" 
                                 placeholder="Email Cliente"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.email}
+                                onChange={props.handleChange}
+                                onBlur={props.handleBlur}
+                                value={props.values.email}
                             />
                         </div>
-                        { formik.touched.email && formik.errors.email ? (
+                        { props.touched.email&& props.errors.email ? (
                                 <div className="my-2 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                                     <p className="font-bold">Error!</p>
-                                    <p>{formik.errors.email}</p>
+                                    <p>{props.errors.email}</p>
                                 </div>
                             ) : null }
                         <div className="mb-4">
@@ -248,22 +242,25 @@ const NuevoCliente = () => {
                                 id="telefono"
                                 type="text"
                                 placeholder="Telefono Cliente"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.telefono}
+                                onChange={props.handleChange}
+                                onBlur={props.handleBlur}
+                                value={props.values.telefono}
                             />
                         </div>
 
                         <input
                             type="submit"
                             className="bg-gray-800 w-full mt-5 p-2 text-white uppercase hover:bg-gray-900"
-                            value="Registrar Cliente"
+                            value="Editar Cliente"
                         />
                     </form>
+                    )
+                }}
+                    </Formik>
                 </div>
             </div>
         </Layout>
      );
 }
  
-export default NuevoCliente;
+export default EditarCliente;
