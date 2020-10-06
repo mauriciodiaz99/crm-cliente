@@ -69,7 +69,7 @@ const EditarProducto = () => {
             Swal.fire(
                 'Actualizado!',
                 'El producto se ha actualizado correctamente.',
-                'success'
+                'success' 
             )
             
         } catch (error) {

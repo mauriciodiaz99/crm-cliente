@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Select from 'react-select';
 import { gql, useQuery } from '@apollo/client';
+import PedidoContext from '../../context/pedidos/PedidoContext';
 
 const OBTENER_PRODUCTOS = gql`
     query obtenerProductos {
@@ -18,10 +19,14 @@ const AsignarProductos = () => {
 
     const [ productos, setProductos ] = useState([]);
 
+    const pedidoContext = useContext(PedidoContext);
+
+    const { agregarProducto } = pedidoContext;
+
     const { data, loading, error } = useQuery(OBTENER_PRODUCTOS);
     
     useEffect(() => {
-        console.log(productos)
+        agregarProducto(productos)
     }, [productos])
 
     const seleccionarProducto = producto => {
