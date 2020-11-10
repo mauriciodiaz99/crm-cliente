@@ -54,9 +54,11 @@ const Login = () => {
                     router.push('/');
                 }, 2000);
 
-                //Guardar el Token en Local Storage
-                const {token} = data.autenticarUsuario;
-                localStorage.setItem('token', token);
+                setTimeout(() => {
+                    //Guardar el Token en Local Storage
+                    const {token} = data.autenticarUsuario;
+                    localStorage.setItem('token', token);
+                }, 1000);                
 
             } catch (error) {
                 guardarMensaje(error.message);

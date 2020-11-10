@@ -4,11 +4,9 @@ import ProductoResumen from './ProductoResumen';
 
 const ResumenPedido = () => {
 
+    // Context de pedidos
     const pedidoContext = useContext(PedidoContext);
-
-    const { productos } = pedidoContext;
-
-    
+    const { productos } = pedidoContext;  
 
     return ( 
         <>
